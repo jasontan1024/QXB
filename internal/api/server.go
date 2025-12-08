@@ -172,6 +172,9 @@ func (s *Server) SetupRoutes() {
 	api.HandleFunc("/reward/status/{address}", s.handleRewardStatus).Methods("GET")
 	api.HandleFunc("/reward/claim", s.handleClaimReward).Methods("POST")
 
+	// 事件查询相关
+	api.HandleFunc("/events/{eventType}", s.handleEvents).Methods("GET")
+
 	// 启用 CORS
 	s.Router.Use(corsMiddleware)
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,6 +49,27 @@ type ClaimRequest struct {
 type ClaimResponse struct {
 	TxHash string `json:"txHash"`
 	Status string `json:"status"`
+}
+
+// EventLog 事件日志
+type EventLog struct {
+	Type        string `json:"type"`
+	From        string `json:"from,omitempty"`
+	To          string `json:"to,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Owner       string `json:"owner,omitempty"`
+	Spender     string `json:"spender,omitempty"`
+	Amount      string `json:"amount,omitempty"`
+	User        string `json:"user,omitempty"`
+	Timestamp   string `json:"timestamp,omitempty"`
+	BlockNumber uint64 `json:"blockNumber"`
+	TxHash      string `json:"txHash"`
+}
+
+// EventsResponse 事件查询响应
+type EventsResponse struct {
+	Events []EventLog `json:"events"`
+	Total  int        `json:"total"`
 }
 
 // 获取代币信息
@@ -409,14 +432,159 @@ func (s *Server) callUint256WithParam(ctx context.Context, contract common.Addre
 	if len(result) == 0 {
 		return big.NewInt(0), nil
 	}
-	
+
 	// 取最后 32 字节（标准 uint256 长度）
 	startIdx := 0
 	if len(result) > 32 {
 		startIdx = len(result) - 32
 	}
-	
+
 	value := new(big.Int).SetBytes(result[startIdx:])
 	return value, nil
 }
 
+// 查询事件日志
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	eventType := vars["eventType"]
+
+	// 解析查询参数
+	fromBlockStr := r.URL.Query().Get("from")
+	toBlockStr := r.URL.Query().Get("to")
+	addressFilter := r.URL.Query().Get("address")
+
+	contract := s.ContractAddress
+	ctx := context.Background()
+
+	// 获取最新区块号
+	latestBlock, err := s.Client.BlockNumber(ctx)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("获取最新区块失败: %v", err))
+		return
+	}
+
+	// 解析区块范围
+	var fromBlock, toBlock uint64
+	if fromBlockStr != "" {
+		fromBlock, err = strconv.ParseUint(fromBlockStr, 10, 64)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "无效的起始区块号")
+			return
+		}
+	} else {
+		// 默认从合约部署区块开始（这里简化处理，使用一个较早的区块）
+		fromBlock = 0
+	}
+
+	if toBlockStr != "" {
+		toBlock, err = strconv.ParseUint(toBlockStr, 10, 64)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "无效的结束区块号")
+			return
+		}
+	} else {
+		toBlock = latestBlock
+	}
+
+	// 构建查询过滤器
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(int64(fromBlock)),
+		ToBlock:   big.NewInt(int64(toBlock)),
+		Addresses: []common.Address{contract},
+	}
+
+	// 获取日志
+	logs, err := s.Client.FilterLogs(ctx, query)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("查询日志失败: %v", err))
+		return
+	}
+
+	var events []EventLog
+
+	// 解析事件
+	for _, log := range logs {
+		// 获取区块信息以获取时间戳
+		block, err := s.Client.BlockByNumber(ctx, big.NewInt(int64(log.BlockNumber)))
+		if err != nil {
+			continue
+		}
+
+		// 解析 Transfer 事件
+		if eventType == "transfer" || eventType == "all" {
+			if len(log.Topics) == 3 && log.Topics[0] == crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")) {
+				from := common.BytesToAddress(log.Topics[1].Bytes())
+				to := common.BytesToAddress(log.Topics[2].Bytes())
+				value := new(big.Int).SetBytes(log.Data)
+
+				// 地址过滤
+				if addressFilter == "" || strings.EqualFold(from.Hex(), addressFilter) || strings.EqualFold(to.Hex(), addressFilter) {
+					events = append(events, EventLog{
+						Type:        "Transfer",
+						From:        from.Hex(),
+						To:          to.Hex(),
+						Value:       value.String(),
+						BlockNumber: log.BlockNumber,
+						TxHash:      log.TxHash.Hex(),
+						Timestamp:   fmt.Sprintf("%d", block.Time()),
+					})
+				}
+			}
+		}
+
+		// 解析 Approval 事件
+		if eventType == "approval" || eventType == "all" {
+			if len(log.Topics) == 3 && log.Topics[0] == crypto.Keccak256Hash([]byte("Approval(address,address,uint256)")) {
+				owner := common.BytesToAddress(log.Topics[1].Bytes())
+				spender := common.BytesToAddress(log.Topics[2].Bytes())
+				amount := new(big.Int).SetBytes(log.Data)
+
+				// 地址过滤
+				if addressFilter == "" || strings.EqualFold(owner.Hex(), addressFilter) || strings.EqualFold(spender.Hex(), addressFilter) {
+					events = append(events, EventLog{
+						Type:        "Approval",
+						Owner:       owner.Hex(),
+						Spender:     spender.Hex(),
+						Amount:      amount.String(),
+						BlockNumber: log.BlockNumber,
+						TxHash:      log.TxHash.Hex(),
+						Timestamp:   fmt.Sprintf("%d", block.Time()),
+					})
+				}
+			}
+		}
+
+		// 解析 DailyRewardClaimed 事件
+		if eventType == "dailyReward" || eventType == "all" {
+			// DailyRewardClaimed(address indexed user, uint256 amount, uint256 timestamp)
+			eventSig := crypto.Keccak256Hash([]byte("DailyRewardClaimed(address,uint256,uint256)"))
+			if len(log.Topics) == 2 && log.Topics[0] == eventSig {
+				user := common.BytesToAddress(log.Topics[1].Bytes())
+
+				// 解析 data（包含 amount 和 timestamp，各 32 字节）
+				var amount, timestamp *big.Int
+				if len(log.Data) >= 64 {
+					amount = new(big.Int).SetBytes(log.Data[0:32])
+					timestamp = new(big.Int).SetBytes(log.Data[32:64])
+				}
+
+				// 地址过滤
+				if addressFilter == "" || strings.EqualFold(user.Hex(), addressFilter) {
+					events = append(events, EventLog{
+						Type:        "DailyRewardClaimed",
+						User:        user.Hex(),
+						Amount:      amount.String(),
+						BlockNumber: log.BlockNumber,
+						TxHash:      log.TxHash.Hex(),
+						Timestamp:   timestamp.String(),
+					})
+				}
+			}
+		}
+	}
+
+	respondSuccess(w, EventsResponse{
+		Events: events,
+		Total:  len(events),
+	})
+}

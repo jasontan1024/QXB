@@ -266,6 +266,80 @@ curl -X POST http://localhost:8080/api/reward/claim \
 
 **注意**：合约地址已在配置文件中固定（`internal/config/config.go`），无需在 API 请求中传入。
 
+#### 查询调用记录（事件日志）
+
+- **请求方法**: `GET`
+- **请求路径**: `/api/events/{eventType}`
+- **路径参数**: 
+  - `{eventType}`: 事件类型，可选值：
+    - `transfer` - 转账事件
+    - `approval` - 授权事件
+    - `dailyReward` - 每日奖励事件
+    - `all` - 所有事件
+- **查询参数**:
+  - `from` (可选): 起始区块号，默认为合约部署区块
+  - `to` (可选): 结束区块号，默认为最新区块
+  - `address` (可选): 过滤地址（对于 Transfer 事件，可以是 from 或 to）
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "events": [
+      {
+        "type": "Transfer",
+        "from": "0x...",
+        "to": "0x...",
+        "value": "1000000000000000000",
+        "blockNumber": 12345678,
+        "txHash": "0xabc123...",
+        "timestamp": "1234567890"
+      }
+    ],
+    "total": 1
+  },
+  "error": ""
+}
+```
+
+**使用示例：**
+```bash
+# 查询所有转账事件
+curl http://localhost:8080/api/events/transfer
+
+# 查询指定地址相关的转账
+curl http://localhost:8080/api/events/transfer?address=0x你的地址
+
+# 查询指定区块范围的事件
+curl http://localhost:8080/api/events/transfer?from=12345600&to=12345700
+```
+
+**📊 查看调用记录的其他方式：**
+
+1. **Etherscan 区块链浏览器**（推荐，最全面）：
+   - 合约地址：https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06
+   - 可以查看：
+     - **Transactions（交易）**：所有合约调用记录，包括转账、授权、领取奖励等
+     - **Events（事件日志）**：Transfer、Approval、DailyRewardClaimed 等事件
+     - **Token Holders（代币持有者）**：所有持有 QXB 的地址及余额
+     - **Contract（合约）**：合约代码、ABI、验证状态
+   - 点击任意交易哈希可以查看详细信息，包括：
+     - Gas 费用
+     - 交易状态（成功/失败）
+     - 事件日志详情
+     - 输入数据解码
+
+2. **通过 MetaMask**：
+   - 在 MetaMask 的"活动"标签页查看你的交易历史
+   - 点击交易可以跳转到 Etherscan 查看详情
+   - 可以看到你的所有转账、授权等操作
+
+3. **通过 API**（程序化查询）：
+   - 使用 `/api/events/{eventType}` 端点查询事件日志
+   - 可以按事件类型、地址、区块范围过滤
+   - 适合集成到自己的应用中
+
 ### API 响应格式
 所有 API 响应均为 JSON 格式：
 ```json
