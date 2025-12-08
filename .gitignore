@@ -22,6 +22,7 @@ blockchain-hello
 lbtc
 bin/
 deploy-direct
+api
 *.bak
 main.go.bak
 
