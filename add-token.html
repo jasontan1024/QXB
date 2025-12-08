@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加 QXB 代币到 MetaMask</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .token-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .token-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .token-info strong {
+            color: #666;
+        }
+        button {
+            background: #f6851b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #e2761b;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .logo-preview {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .logo-preview img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🪙 添加 QXB 代币到 MetaMask</h1>
+        
+        <div class="logo-preview">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%234169E1'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' fill='white' text-anchor='middle'%3EQXB%3C/text%3E%3C/svg%3E" alt="QXB Logo">
+        </div>
+
+        <div class="token-info">
+            <p><strong>代币名称:</strong> 齐夏币</p>
+            <p><strong>代币符号:</strong> QXB</p>
+            <p><strong>小数位数:</strong> 18</p>
+            <p><strong>合约地址:</strong> <code>0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06</code></p>
+            <p><strong>网络:</strong> Sepolia 测试网</p>
+        </div>
+
+        <button id="addTokenBtn" onclick="addToken()">添加到 MetaMask</button>
+
+        <div id="status" class="status" style="display: none;">正在检测 MetaMask...</div>
+
+        <div class="note">
+            <strong>📝 说明：</strong><br>
+            1. 请确保已安装 MetaMask 并连接到 <strong>Sepolia 测试网</strong><br>
+            2. 如果当前不在 Sepolia 测试网，点击按钮时会自动尝试切换网络<br>
+            3. 如果显示"未检测到 MetaMask"：<br>
+               &nbsp;&nbsp;- 确保 MetaMask 扩展已安装并启用<br>
+               &nbsp;&nbsp;- 刷新页面（F5 或 Cmd+R）<br>
+               &nbsp;&nbsp;- 检查浏览器是否阻止了扩展<br>
+               &nbsp;&nbsp;- 尝试重新加载 MetaMask 扩展<br>
+            4. 如果按钮点击无反应，请检查 MetaMask 是否已解锁<br>
+            5. <strong>如果 MetaMask 显示"代币已添加"但"下一步"按钮是灰色的</strong>：<br>
+               &nbsp;&nbsp;- 请确保网络选择为 <strong>Sepolia 测试网</strong><br>
+               &nbsp;&nbsp;- 尝试刷新页面或重新打开 MetaMask<br>
+               &nbsp;&nbsp;- 或者手动输入代币符号 <code>QXB</code> 和小数位数 <code>18</code>
+        </div>
+    </div>
+
+    <script>
+        // 代币 Logo（SVG 格式，Base64 编码）
+        const tokenLogo = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'45\' fill=\'%234169E1\'/%3E%3Ctext x=\'50\' y=\'65\' font-size=\'40\' font-weight=\'bold\' fill=\'white\' text-anchor=\'middle\'%3EQXB%3C/text%3E%3C/svg%3E';
+
+        // 检查 MetaMask 是否可用
+        function checkMetaMask() {
+            if (typeof window.ethereum !== 'undefined') {
+                // 检查是否是 MetaMask
+                if (window.ethereum.isMetaMask) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 页面加载时检查 MetaMask
+        window.addEventListener('load', function() {
+            // 等待一下，让 MetaMask 有时间注入
+            setTimeout(function() {
+                if (checkMetaMask()) {
+                    const status = document.getElementById('status');
+                    status.style.display = 'none';
+                } else {
+                    const status = document.getElementById('status');
+                    showStatus('error', '❌ 未检测到 MetaMask，请确保：<br>1. MetaMask 扩展已安装并启用<br>2. 刷新页面后重试<br>3. 检查浏览器扩展是否被阻止');
+                }
+            }, 500);
+        });
+
+        async function addToken() {
+            const button = document.getElementById('addTokenBtn');
+            const status = document.getElementById('status');
+            
+            // 检查 MetaMask 是否安装
+            if (!checkMetaMask()) {
+                showStatus('error', '❌ 未检测到 MetaMask，请确保：<br>1. MetaMask 扩展已安装并启用<br>2. 刷新页面后重试<br>3. 检查浏览器扩展是否被阻止');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = '处理中...';
+
+            try {
+                // 检查当前网络
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const sepoliaChainId = '0xaa36a7'; // Sepolia 测试网链 ID: 11155111
+                
+                if (chainId !== sepoliaChainId) {
+                    // 尝试自动切换到 Sepolia 测试网
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: sepoliaChainId }],
+                        });
+                        // 切换成功，等待一下再继续
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } catch (switchError) {
+                        // 如果切换失败，可能是网络不存在，尝试添加网络
+                        if (switchError.code === 4902) {
+                            try {
+                                await window.ethereum.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: sepoliaChainId,
+                                        chainName: 'Sepolia Test Network',
+                                        nativeCurrency: {
+                                            name: 'SepoliaETH',
+                                            symbol: 'ETH',
+                                            decimals: 18
+                                        },
+                                        rpcUrls: ['https://ethereum-sepolia-rpc.publicnode.com'],
+                                        blockExplorerUrls: ['https://sepolia.etherscan.io']
+                                    }],
+                                });
+                                // 添加成功，等待一下再继续
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            } catch (addError) {
+                                showStatus('error', '❌ 无法切换到 Sepolia 测试网，请手动切换：<br>1. 点击 MetaMask 顶部的网络选择器<br>2. 选择"Sepolia 测试网络"<br>3. 如果没有，点击"显示测试网络"并添加 Sepolia');
+                                button.disabled = false;
+                                button.textContent = '添加到 MetaMask';
+                                return;
+                            }
+                        } else {
+                            showStatus('error', '❌ 请先切换到 Sepolia 测试网！<br>当前网络链 ID: ' + chainId + '<br>请在 MetaMask 中手动切换到 Sepolia 测试网络');
+                            button.disabled = false;
+                            button.textContent = '添加到 MetaMask';
+                            return;
+                        }
+                    }
+                }
+
+                // 使用 wallet_watchAsset API 添加代币
+                const wasAdded = await window.ethereum.request({
+                    method: 'wallet_watchAsset',
+                    params: {
+                        type: 'ERC20',
+                        options: {
+                            address: '0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06', // 合约地址
+                            symbol: 'QXB', // 代币符号
+                            decimals: 18, // 小数位数
+                            image: tokenLogo, // Logo URL（可以是图片 URL 或 data URI）
+                        },
+                    },
+                });
+
+                if (wasAdded) {
+                    showStatus('success', '✅ 代币已成功添加到 MetaMask！');
+                } else {
+                    showStatus('error', '❌ 用户取消了添加操作');
+                }
+            } catch (error) {
+                console.error('添加代币失败:', error);
+                showStatus('error', '❌ 添加失败: ' + (error.message || '未知错误'));
+            } finally {
+                button.disabled = false;
+                button.textContent = '添加到 MetaMask';
+            }
+        }
+
+        function showStatus(type, message) {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.innerHTML = message; // 使用 innerHTML 以支持 HTML 标签
+            status.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+
