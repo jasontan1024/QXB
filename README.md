@@ -58,72 +58,25 @@ API 服务运行在 `http://localhost:8080`
 
 **🪙 添加到 MetaMask：**
 
-**⚠️ 重要：必须使用方法 1（自动添加工具）**
-
-MetaMask 在手动添加时可能无法正确读取 decimals（小数精度），导致：
-- 小数精度字段显示为 0 且变为灰色（不可编辑）
-- 代币余额显示为 0（即使实际有余额）
-
-**方法 1：使用自动添加工具（强烈推荐）⭐⭐⭐**
-
-**⚠️ 重要：不能直接用 `file://` 协议打开，需要使用 HTTP 服务器**
-
-1. **启动本地 HTTP 服务器**（在项目根目录执行）：
-   ```bash
-   # 使用 Python（推荐）
-   python3 -m http.server 8000
-   
-   # 或者使用 Go（如果已安装）
-   go run -m http.server 8000
-   ```
-
-2. **在浏览器中访问**：
-   ```
-   http://localhost:8000/add-token.html
-   ```
-   （不要使用 `file://` 协议打开，MetaMask 在 file:// 协议下可能无法正常工作）
-
-3. 确保 MetaMask 已连接到 **Sepolia 测试网**
-
-4. 点击"添加到 MetaMask"按钮
-
-5. 在 MetaMask 弹窗中确认添加
-
-6. ✅ 这会自动设置正确的 decimals（18），余额会正确显示
-
-**方法 2：手动添加（不推荐，可能有问题）**
-如果必须手动添加：
 1. 打开 MetaMask，点击"添加代币"
 2. 切换到"自定义代币"标签页
-3. 输入合约地址：`0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06`
-4. **如果小数精度字段显示为 0 且是灰色的**：
-   - 删除代币，改用方法 1（自动添加工具）
-   - 或者尝试刷新 MetaMask 后重新添加
+3. 输入以下信息：
+   - **合约地址**: `0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06`
+   - **代币符号**: `QXB`
+   - **小数精度**: `18`
+4. 点击"添加代币"
 
-**⚠️ 如果代币显示余额为 0 或小数精度为灰色：**
-- 这通常是因为 MetaMask 无法从链上读取 decimals，导致显示为 0 且字段变为灰色（不可编辑）
-- **解决方法**：
-  1. 在 MetaMask 中删除该代币（点击代币右侧的菜单，选择"隐藏代币"）
-  2. **使用 `add-token.html` 文件重新添加**（这是最可靠的方法）
-  3. `add-token.html` 会通过 MetaMask API 直接设置正确的 decimals（18），绕过 MetaMask 的自动读取问题
+**⚠️ 注意事项：**
 
-**⚠️ 常见问题：**
-
-1. **代币已添加但列表中不显示？**
-   - 检查 MetaMask 是否在 **Sepolia 测试网**（不是主网）
-   - 检查代币余额：如果余额为 0，MetaMask 可能默认隐藏，需要：
-     - 点击代币列表右上角的"导入代币"或"管理代币"
-     - 或者滚动到底部查看隐藏的代币
-   - 尝试刷新 MetaMask 或重新打开扩展
-   - 确认代币网络：代币必须添加到 Sepolia 测试网，不能添加到主网
-
-2. **"下一步"按钮是灰色的？**
-   - 必须使用"自定义代币"标签页（不要用"搜索"标签页）
-   - 确保输入了完整的合约地址、代币符号（QXB）和小数位数（18）
-
-3. **确保网络正确：**
-   - MetaMask 必须连接到 **Sepolia 测试网**（链 ID: 11155111）
-   - 如果连接到主网或其他网络，代币不会显示
+- 确保 MetaMask 已连接到 **Sepolia 测试网**（链 ID: 11155111）
+- 如果小数精度字段显示为 0 且是灰色的，尝试：
+  - 刷新 MetaMask 后重新添加
+  - 确保网络选择为 Sepolia 测试网
+  - 手动输入代币符号（QXB）和小数位数（18）
+- 如果代币余额显示为 0，检查：
+  - 是否在正确的网络（Sepolia 测试网）
+  - 代币是否已正确添加（检查代币列表）
+  - 尝试刷新 MetaMask
 
 ## 代币配置
 
@@ -266,56 +219,7 @@ curl -X POST http://localhost:8080/api/reward/claim \
 
 **注意**：合约地址已在配置文件中固定（`internal/config/config.go`），无需在 API 请求中传入。
 
-#### 查询调用记录（事件日志）
-
-- **请求方法**: `GET`
-- **请求路径**: `/api/events/{eventType}`
-- **路径参数**: 
-  - `{eventType}`: 事件类型，可选值：
-    - `transfer` - 转账事件
-    - `approval` - 授权事件
-    - `dailyReward` - 每日奖励事件
-    - `all` - 所有事件
-- **查询参数**:
-  - `from` (可选): 起始区块号，默认为合约部署区块
-  - `to` (可选): 结束区块号，默认为最新区块
-  - `address` (可选): 过滤地址（对于 Transfer 事件，可以是 from 或 to）
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "events": [
-      {
-        "type": "Transfer",
-        "from": "0x...",
-        "to": "0x...",
-        "value": "1000000000000000000",
-        "blockNumber": 12345678,
-        "txHash": "0xabc123...",
-        "timestamp": "1234567890"
-      }
-    ],
-    "total": 1
-  },
-  "error": ""
-}
-```
-
-**使用示例：**
-```bash
-# 查询所有转账事件
-curl http://localhost:8080/api/events/transfer
-
-# 查询指定地址相关的转账
-curl http://localhost:8080/api/events/transfer?address=0x你的地址
-
-# 查询指定区块范围的事件
-curl http://localhost:8080/api/events/transfer?from=12345600&to=12345700
-```
-
-**📊 查看调用记录的其他方式：**
+**📊 查看调用记录：**
 
 1. **Etherscan 区块链浏览器**（推荐，最全面）：
    - 合约地址：https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06
@@ -334,11 +238,6 @@ curl http://localhost:8080/api/events/transfer?from=12345600&to=12345700
    - 在 MetaMask 的"活动"标签页查看你的交易历史
    - 点击交易可以跳转到 Etherscan 查看详情
    - 可以看到你的所有转账、授权等操作
-
-3. **通过 API**（程序化查询）：
-   - 使用 `/api/events/{eventType}` 端点查询事件日志
-   - 可以按事件类型、地址、区块范围过滤
-   - 适合集成到自己的应用中
 
 ### API 响应格式
 所有 API 响应均为 JSON 格式：

@@ -172,9 +172,6 @@ func (s *Server) SetupRoutes() {
 	api.HandleFunc("/reward/status/{address}", s.handleRewardStatus).Methods("GET")
 	api.HandleFunc("/reward/claim", s.handleClaimReward).Methods("POST")
 
-	// 事件查询相关
-	api.HandleFunc("/events/{eventType}", s.handleEvents).Methods("GET")
-
 	// 启用 CORS
 	s.Router.Use(corsMiddleware)
 }
@@ -269,13 +266,13 @@ GET /api/token/balance/{address}
 - address: 查询的地址
 
 示例:
-GET /api/token/balance/0xe628ce9c1def02fa8958d081bbda75b4a9907955
+GET /api/token/balance/0x405e2ea956ea490bf3d4bd734dc334a1d42b35b9
 
 响应:
 {
   "success": true,
   "data": {
-    "address": "0xe628ce9c1def02fa8958d081bbda75b4a9907955",
+    "address": "0x405e2ea956ea490bf3d4bd734dc334a1d42b35b9",
     "balance": "1000.5",
     "symbol": "QXB"
   }
@@ -294,7 +291,7 @@ GET /api/reward/status/0xe628ce9c1def02fa8958d081bbda75b4a9907955
 {
   "success": true,
   "data": {
-    "address": "0xe628ce9c1def02fa8958d081bbda75b4a9907955",
+    "address": "0x405e2ea956ea490bf3d4bd734dc334a1d42b35b9",
     "canClaim": true,
     "lastClaimDay": 19723,
     "nextClaimDay": 0

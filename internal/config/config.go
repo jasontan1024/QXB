@@ -19,9 +19,6 @@ const (
 
 	// QXB 合约地址（Sepolia 测试网）
 	QXBContractAddress = "0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06"
-
-	// 你的钱包地址（Sepolia 测试网）
-	ExampleAddress = "0xe628ce9c1def02fa8958d081bbda75b4a9907955"
 )
 
 var (
