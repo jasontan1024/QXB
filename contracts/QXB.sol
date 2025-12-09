@@ -9,7 +9,7 @@ pragma solidity ^0.8.30;
  */
 contract QXB {
     // 合约版本信息
-    string public constant version = "1.0.0";  // 合约版本号
+    string public constant VERSION = "1.0.0";  // 合约版本号
     
     // 代币基本信息
     string public name;           // 代币名称
