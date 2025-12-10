@@ -187,6 +187,8 @@
 
 ### QXB 代币项目 · 后端 / 全栈  
 📆 2025.01 - 2024.12  
+🔗 **GitHub**: https://github.com/jasontan1024/QXB
+
 - 使用 Go + GORM + SQLite 实现 ERC20 (Sepolia) 后端：JWT 认证、Argon2 + AES-GCM 私钥加密、链上转账与每日奖励领取。  
 - 集成 go-ethereum 完成交易签名与发送；加入 claim_locks 锁表避免同日重复领取；提供 owner 空投脚本为测试账号注资。  
 - 前端 React（注册/登录、Dashboard、奖励领取、转账），Playwright E2E（含有余额账号转账成功用例、错误场景用例），完整文档与测试说明。  
