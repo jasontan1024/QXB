@@ -26,52 +26,204 @@ QXB（齐夏币）是一个基于以太坊 Sepolia 测试网的 ERC20 代币，�
 - ✅ 私钥加密存储（使用 Argon2 + AES-GCM）
 - ✅ 基于存储私钥的代币操作（无需客户端输入私钥）
 
+## 部署方式
+
+### 合约部署
+
+#### 前置准备
+
+1. **安装 Foundry 工具链（仅用于编译合约）**
+   - Foundry 用于编译 Solidity 合约，生成字节码和 ABI
+   - 部署程序会读取 Foundry 编译后的 JSON 文件（`out/QXB.sol/QXB.json`）
+   - 安装完成后使用 `forge build` 编译合约
+
+2. **准备部署账户**
+   - 需要准备一个 Sepolia 测试网账户
+   - 账户需要有足够的 Sepolia ETH 用于支付 Gas 费用（建议至少 0.01 ETH）
+   - 设置环境变量 `PRIVATE_KEY` 为部署账户的私钥
+
+3. **配置网络**
+   - 默认部署到 Sepolia 测试网
+   - RPC 节点：https://ethereum-sepolia-rpc.publicnode.com
+   - 链 ID：11155111
+
+#### 部署步骤
+
+1. **编译合约**
+   - 使用 Foundry 编译 QXB 合约：`forge build`
+   - 编译后会生成 `out/QXB.sol/QXB.json` 文件
+   - 该文件包含合约字节码和 ABI，供部署程序使用
+
+2. **执行部署**
+   - 使用项目自带的 Go 部署程序进行部署：`go run ./cmd/deploy-direct`
+   - 部署程序会读取 Foundry 编译后的 JSON 文件
+   - 自动处理交易签名、Gas 估算和交易发送
+   - 等待交易确认后输出合约地址
+
+3. **配置合约地址**
+   - 部署成功后，将合约地址配置到项目中
+   - 更新 `internal/config/config.go` 中的合约地址
+   - 重启 API 服务器使配置生效
+
+**说明**：虽然编译合约需要 Foundry，但实际的部署过程完全由项目自带的 Go 程序完成，不依赖 Foundry 的部署功能。
+
+### 项目部署
+
+项目支持两种部署方式：本地部署和 Docker 部署。
+
+#### 方式一：本地部署
+
+**前置要求**：
+- Go 1.21+ 环境
+- Node.js 20+ 和 npm
+- 已部署合约并配置合约地址
+
+**部署步骤**：
+
+1. **配置环境变量**
+   - 创建 `.env` 文件（可参考 `.env.example`）
+   - 设置 `PRIVATE_KEY`（用于自动转账 ETH 功能）
+   - 设置 `JWT_SECRET`（JWT 密钥，可选）
+
+2. **启动后端 API 服务器**
+   - 进入项目根目录
+   - 运行：`go run ./cmd/api`
+   - API 服务将在 `http://localhost:8080` 启动
+
+3. **启动前端应用**
+   - 进入 `web` 目录
+   - 安装依赖：`npm install`（首次运行）
+   - 启动开发服务器：`npm start`
+   - 前端应用将在 `http://localhost:3000` 启动
+
+4. **验证部署**
+   - 访问 `http://localhost:3000` 查看前端界面
+   - 访问 `http://localhost:8080/health` 检查后端健康状态
+   - 访问 `http://localhost:8080/api/docs` 查看 API 文档
+
+**数据存储**：
+- 数据库文件默认存储在 `data/app.db`
+- 可通过环境变量 `DB_PATH` 自定义数据库路径
+
+#### 方式二：Docker 部署
+
+**前置要求**：
+- Docker 和 Docker Compose
+- 已部署合约并配置合约地址
+
+**部署步骤**：
+
+1. **配置环境变量**
+   - 创建 `.env` 文件（可参考 `.env.example`）
+   - 设置 `PRIVATE_KEY`（用于自动转账 ETH 功能）
+   - 设置 `JWT_SECRET`（JWT 密钥，可选）
+
+2. **构建和启动服务**
+   - 在项目根目录运行：`docker-compose up -d`
+   - Docker Compose 会自动构建并启动 API 和 Web 服务
+
+3. **查看服务状态**
+   - 查看日志：`docker-compose logs -f`
+   - 查看服务状态：`docker-compose ps`
+   - 停止服务：`docker-compose down`
+
+4. **验证部署**
+   - 访问 `http://localhost:3000` 查看前端界面
+   - 访问 `http://localhost:8080/health` 检查后端健康状态
+
+**Docker 配置说明**：
+- **API 服务**（`Dockerfile.api`）：
+  - 基于 Go 1.25 Alpine 镜像
+  - 数据目录挂载到 `./data`
+  - 端口映射：`8080:8080`
+  
+- **Web 服务**（`Dockerfile.web`）：
+  - 基于 Node.js 20 Alpine 镜像
+  - 构建时注入 API 地址
+  - 使用 `serve` 提供静态文件服务
+  - 端口映射：`3000:3000`
+
+- **数据持久化**：
+  - 数据库文件存储在 `./data` 目录
+  - 通过 Docker volume 挂载，确保数据持久化
+
+**注意事项**：
+- 首次构建可能需要较长时间（下载依赖和编译）
+- 确保 `data` 目录有写入权限
+- 生产环境建议使用 `.env` 文件管理敏感信息，不要将私钥提交到代码仓库
+
+### 合约功能说明
+
+**QXB 代币合约**实现了以下功能：
+
+- **ERC20 标准代币**
+  - 完全兼容 ERC20 标准
+  - 支持标准转账和授权功能
+
+- **代币管理**
+  - 代币名称：齐夏币
+  - 代币符号：QXB
+  - 小数位数：18
+  - 初始总供应量：2,025 QXB（分配给部署者）
+
+- **每日奖励机制**
+  - 每个地址每天可以领取 1 QXB
+  - 基于 UTC 日期，每天只能领取一次
+  - 提供奖励状态查询功能
+
+- **代币操作**
+  - 标准转账功能（transfer）
+  - 授权转账功能（transferFrom）
+  - 授权管理（approve, increaseAllowance, decreaseAllowance）
+  - 代币铸造（mint，仅合约所有者）
+  - 代币销毁（burn，任何持有者）
+
+- **作者简历功能**
+  - 合约所有者可以设置 Markdown 格式的简历
+  - 任何人都可以读取简历内容
+
+### 部署后配置
+
+部署完成后，需要：
+
+1. **更新配置**
+   - 将部署得到的合约地址写入配置文件
+   - 确保 API 服务器使用正确的合约地址
+
+2. **验证部署**
+   - 在 Etherscan 上查看合约详情
+   - 验证合约代码和状态
+   - 确认初始代币分配正确
+
+3. **测试功能**
+   - 测试代币转账功能
+   - 测试每日奖励领取功能
+   - 验证所有 API 接口正常工作
+
 ## 快速开始
-
-### 0. 编译合约（首次使用或更新合约后）
-
-```bash
-# 安装 Foundry（如果未安装）
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-
-# 编译合约
-forge build
-```
 
 ### 1. 部署合约
 
-```bash
-# 设置私钥
-export PRIVATE_KEY=你的私钥
+按照 [合约部署](#合约部署) 章节的说明，完成合约的编译和部署。
 
-# 部署（需要先编译合约）
-go run ./cmd/deploy-direct
-```
+### 2. 部署项目
 
-### 2. 启动 API 服务器
+选择以下两种方式之一部署项目：
 
-```bash
-# 需要先编译合约（forge build）
-go run ./cmd/api
-```
+**方式一：本地部署**
+- 按照 [本地部署](#方式一本地部署) 章节的说明进行部署
+- 适合开发和测试环境
 
-API 服务运行在 `http://localhost:8080`
+**方式二：Docker 部署**
+- 按照 [Docker 部署](#方式二docker-部署) 章节的说明进行部署
+- 适合生产环境和容器化部署
 
-### 3. 启动前端应用
+### 3. 访问应用
 
-```bash
-# 进入前端目录
-cd web
-
-# 安装依赖（首次运行）
-npm install
-
-# 启动开发服务器
-npm start
-```
-
-前端应用运行在 `http://localhost:3000`
+- **前端应用**：http://localhost:3000
+- **API 服务**：http://localhost:8080
+- **API 文档**：http://localhost:8080/api/docs
+- **健康检查**：http://localhost:8080/health
 
 **💡 前端功能：**
 - 用户注册：创建账户并自动生成以太坊地址
@@ -144,305 +296,35 @@ npx playwright show-report
 - **合约版本**: 1.0.0
 - **Solidity 版本**: 0.8.30
 
-## API 端点
+## API 文档
 
-### 基础端点
-- `GET /health` - 健康检查
-- `GET /api/docs` - API 文档
+详细的 API 文档请参考 [API.md](API.md)
 
-### 代币相关
+**主要 API 端点概览：**
 
-#### 查询代币信息
-- **请求方法**: `GET`
-- **请求路径**: `/api/token/info`
-- **参数**: 无（合约地址已在配置中固定）
+- **基础端点**
+  - `GET /health` - 健康检查
+  - `GET /api/docs` - API 文档
 
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "name": "齐夏币",
-    "symbol": "QXB",
-    "decimals": 18,
-    "totalSupply": "2025000000000000000000",
-    "version": "1.0.0"
-  },
-  "error": ""
-}
-```
+- **代币相关**
+  - `GET /api/token/info` - 查询代币信息
+  - `GET /api/token/balance/<地址>` - 查询代币余额
+  - `POST /api/token/transfer` - 转账代币（需要认证）
 
-#### 查询代币余额
-- **请求方法**: `GET`
-- **请求路径**: `/api/token/balance/<地址>`
-- **路径参数**: 
-  - `<地址>`: 以太坊地址（十六进制字符串，可以带或不带0x前缀）
+- **每日奖励相关**
+  - `GET /api/reward/status/<地址>` - 查询奖励状态
+  - `POST /api/reward/claim` - 领取每日奖励
 
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "address": "0x...",
-    "balance": "1000000000000000000"
-  },
-  "error": ""
-}
-```
+- **认证相关**
+  - `POST /api/auth/register` - 用户注册
+  - `POST /api/auth/login` - 用户登录
+  - `GET /api/auth/me` - 获取当前用户信息（需要认证）
 
-**使用示例：**
-```bash
-curl http://localhost:8080/api/token/balance/0x你的地址
-```
+- **其他**
+  - `GET /api/resume` - 获取作者简历
 
-### 每日奖励相关
+所有 API 响应均为 JSON 格式，统一使用以下结构：
 
-#### 查询奖励状态
-- **请求方法**: `GET`
-- **请求路径**: `/api/reward/status/<地址>`
-- **路径参数**: 
-  - `<地址>`: 以太坊地址（十六进制字符串，可以带或不带0x前缀）
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "address": "0x...",
-    "canClaim": true,
-    "lastClaimDay": 19701,
-    "nextClaimDay": 19702
-  },
-  "error": ""
-}
-```
-
-**响应字段说明：**
-- `canClaim` (bool): 是否可以领取奖励
-- `lastClaimDay` (uint64): 上次领取的日期（UTC 天数，从 1970-01-01 开始计算）
-- `nextClaimDay` (uint64): 下次可以领取的日期（UTC 天数）
-
-**使用示例：**
-```bash
-curl http://localhost:8080/api/reward/status/0x你的地址
-```
-#### 领取每日奖励
-- **请求方法**: `POST`
-- **请求路径**: `/api/reward/claim`
-- **Content-Type**: `application/json`
-
-**请求体（JSON）：**
-
-方式一：使用存储的私钥（推荐，需要登录）
-```json
-{
-  "password": "你的密码"
-}
-```
-
-方式二：直接提供私钥（向后兼容）
-```json
-{
-  "privateKey": "你的私钥（十六进制字符串，可以带或不带0x前缀）"
-}
-```
-
-**参数说明：**
-- `password` (string, 可选): 用户密码，用于解密存储的私钥。需要先登录并在请求头中提供 JWT token
-- `privateKey` (string, 可选): 用于签名交易的私钥，十六进制格式
-  - 可以带 `0x` 前缀，也可以不带
-  - 例如：`"0x1234567890abcdef..."` 或 `"1234567890abcdef..."`
-
-**注意**：`password` 和 `privateKey` 至少需要提供一个。
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "txHash": "0xabc123...",
-    "status": "pending"
-  },
-  "error": ""
-}
-```
-
-**使用示例（curl）：**
-
-使用存储的私钥（需要先登录获取 token）：
-```bash
-curl -X POST http://localhost:8080/api/reward/claim \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <你的JWT令牌>" \
-  -d '{"password": "你的密码"}'
-```
-
-直接提供私钥：
-```bash
-curl -X POST http://localhost:8080/api/reward/claim \
-  -H "Content-Type: application/json" \
-  -d '{"privateKey": "你的私钥"}'
-```
-
-**注意**：合约地址已在配置文件中固定（`internal/config/config.go`），无需在 API 请求中传入。
-
-### 认证相关
-
-#### 用户注册
-- **请求方法**: `POST`
-- **请求路径**: `/api/auth/register`
-- **Content-Type**: `application/json`
-
-**请求体（JSON）：**
-```json
-{
-  "email": "user@example.com",
-  "password": "your_password"
-}
-```
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "user_id": 1,
-    "email": "user@example.com",
-    "address": "0x...",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  },
-  "error": ""
-}
-```
-
-**说明**：
-- 注册时会自动生成以太坊密钥对
-- 私钥使用用户密码加密后存储（Argon2 + AES-GCM）
-- 返回 JWT token，可用于后续认证
-
-#### 用户登录
-- **请求方法**: `POST`
-- **请求路径**: `/api/auth/login`
-- **Content-Type**: `application/json`
-
-**请求体（JSON）：**
-```json
-{
-  "email": "user@example.com",
-  "password": "your_password"
-}
-```
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "user_id": 1,
-    "email": "user@example.com",
-    "address": "0x...",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  },
-  "error": ""
-}
-```
-
-#### 获取当前用户信息
-- **请求方法**: `GET`
-- **请求路径**: `/api/auth/me`
-- **需要认证**: 是（在请求头中提供 `Authorization: Bearer <token>`）
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "user_id": 1,
-    "email": "user@example.com",
-    "address": "0x..."
-  },
-  "error": ""
-}
-```
-
-### 代币转账
-
-#### 转账代币
-- **请求方法**: `POST`
-- **请求路径**: `/api/token/transfer`
-- **Content-Type**: `application/json`
-- **需要认证**: 是（在请求头中提供 `Authorization: Bearer <token>`）
-
-**请求体（JSON）：**
-```json
-{
-  "to": "0x接收地址",
-  "amount": "1000000000000000000",
-  "password": "你的密码"
-}
-```
-
-**参数说明：**
-- `to` (string, 必需): 接收代币的以太坊地址
-- `amount` (string, 必需): 转账金额（以 wei 为单位，18 位小数）
-  - 例如：`"1000000000000000000"` 表示 1 QXB
-- `password` (string, 必需): 用户密码，用于解密存储的私钥
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": {
-    "txHash": "0xabc123...",
-    "status": "pending"
-  },
-  "error": ""
-}
-```
-
-**错误响应：**
-```json
-{
-  "success": false,
-  "data": null,
-  "error": "余额不足"
-}
-```
-
-**使用示例（curl）：**
-```bash
-curl -X POST http://localhost:8080/api/token/transfer \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <你的JWT令牌>" \
-  -d '{
-    "to": "0x接收地址",
-    "amount": "1000000000000000000",
-    "password": "你的密码"
-  }'
-```
-
-**📊 查看调用记录：**
-
-1. **Etherscan 区块链浏览器**（推荐，最全面）：
-   - 合约地址：https://sepolia.etherscan.io/address/0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17
-   - 可以查看：
-     - **Transactions（交易）**：所有合约调用记录，包括转账、授权、领取奖励等
-     - **Events（事件日志）**：Transfer、Approval、DailyRewardClaimed 等事件
-     - **Token Holders（代币持有者）**：所有持有 QXB 的地址及余额
-     - **Contract（合约）**：合约代码、ABI、验证状态
-   - 点击任意交易哈希可以查看详细信息，包括：
-     - Gas 费用
-     - 交易状态（成功/失败）
-     - 事件日志详情
-     - 输入数据解码
-
-2. **通过 MetaMask**：
-   - 在 MetaMask 的"活动"标签页查看你的交易历史
-   - 点击交易可以跳转到 Etherscan 查看详情
-   - 可以看到你的所有转账、授权等操作
-
-### API 响应格式
-所有 API 响应均为 JSON 格式：
 ```json
 {
   "success": true,

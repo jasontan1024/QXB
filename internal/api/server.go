@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gorilla/mux"
 
@@ -22,8 +24,9 @@ type Server struct {
 	Router          *mux.Router
 	Client          *ethclient.Client
 	Contract        *ContractService
-	ContractAddress common.Address // 固定的合约地址
-	AuthService     *auth.Service  // 认证服务
+	ContractAddress common.Address    // 固定的合约地址
+	AuthService     *auth.Service     // 认证服务
+	OwnerPrivateKey *ecdsa.PrivateKey // 合约拥有者私钥（用于自动转账 ETH）
 }
 
 // ContractService 合约服务
@@ -151,6 +154,19 @@ func NewServer(rpcURL string) *Server {
 		log.Fatalf("解析 ABI 失败: %v", err)
 	}
 
+	// 初始化合约拥有者私钥（用于自动转账 ETH）
+	var ownerPrivateKey *ecdsa.PrivateKey
+	ownerPrivHex := config.GetPrivateKey()
+	if ownerPrivHex != "" {
+		ownerPrivHex = strings.TrimPrefix(ownerPrivHex, "0x")
+		ownerKey, err := crypto.HexToECDSA(ownerPrivHex)
+		if err != nil {
+			log.Printf("警告: 无法解析合约拥有者私钥，自动转账 ETH 功能将不可用: %v", err)
+		} else {
+			ownerPrivateKey = ownerKey
+		}
+	}
+
 	return &Server{
 		Router:          mux.NewRouter(),
 		Client:          client,
@@ -159,7 +175,8 @@ func NewServer(rpcURL string) *Server {
 			Client: client,
 			ABI:    contractABI,
 		},
-		AuthService: authService,
+		AuthService:     authService,
+		OwnerPrivateKey: ownerPrivateKey,
 	}
 }
 

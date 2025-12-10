@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"strings"
@@ -17,6 +18,14 @@ import (
 	"github.com/gorilla/mux"
 
 	"lbtc/internal/auth"
+)
+
+// contextKey 用于 context 值的自定义类型
+type contextKey string
+
+const (
+	contextKeyUserID    contextKey = "user_id"
+	contextKeyUserEmail contextKey = "user_email"
 )
 
 // TokenInfo 代币信息
@@ -294,6 +303,128 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 	respondSuccess(w, ResumeResponse{Content: content})
 }
 
+// checkAndFundETH 检查地址的 ETH 余额，如果不足则自动转账少量 ETH
+// 最小余额阈值：0.001 ETH (1000000000000000 wei)
+// waitForConfirmation: 是否等待交易确认（true=等待确认，false=只发送交易）
+func (s *Server) checkAndFundETH(ctx context.Context, address common.Address, waitForConfirmation bool) error {
+	if s.OwnerPrivateKey == nil {
+		// 如果没有配置拥有者私钥，跳过自动转账
+		log.Printf("警告: 未配置拥有者私钥，无法自动转账 ETH 给 %s", address.Hex())
+		return fmt.Errorf("未配置拥有者私钥，无法自动转账 ETH")
+	}
+
+	// 检查当前 ETH 余额
+	balance, err := s.Client.BalanceAt(ctx, address, nil)
+	if err != nil {
+		return fmt.Errorf("查询 ETH 余额失败: %v", err)
+	}
+
+	// 最小余额阈值：0.001 ETH
+	minBalance := big.NewInt(1000000000000000) // 0.001 ETH in wei
+	if balance.Cmp(minBalance) >= 0 {
+		// 余额充足，无需转账
+		log.Printf("地址 %s ETH 余额充足: %s wei", address.Hex(), balance.String())
+		return nil
+	}
+
+	log.Printf("地址 %s ETH 余额不足: %s wei，需要自动转账", address.Hex(), balance.String())
+
+	// 余额不足，需要转账
+	// 转账金额：0.002 ETH（足够支付几次交易的 gas）
+	transferAmount := big.NewInt(2000000000000000) // 0.002 ETH in wei
+
+	// 获取拥有者地址
+	ownerAddress := crypto.PubkeyToAddress(s.OwnerPrivateKey.PublicKey)
+
+	// 获取 nonce
+	nonce, err := s.Client.PendingNonceAt(ctx, ownerAddress)
+	if err != nil {
+		return fmt.Errorf("获取 nonce 失败: %v", err)
+	}
+
+	// 获取链 ID
+	chainID, err := s.Client.NetworkID(ctx)
+	if err != nil {
+		return fmt.Errorf("获取链 ID 失败: %v", err)
+	}
+
+	// 获取 Gas 价格
+	gasPrice, err := s.Client.SuggestGasPrice(ctx)
+	if err != nil {
+		return fmt.Errorf("获取 Gas 价格失败: %v", err)
+	}
+
+	// 创建 ETH 转账交易（普通转账，不是合约调用）
+	tx := types.NewTransaction(nonce, address, transferAmount, 21000, gasPrice, nil)
+
+	// 签名交易
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), s.OwnerPrivateKey)
+	if err != nil {
+		return fmt.Errorf("签名交易失败: %v", err)
+	}
+
+	// 发送交易
+	err = s.Client.SendTransaction(ctx, signedTx)
+	if err != nil {
+		return fmt.Errorf("发送 ETH 转账失败: %v", err)
+	}
+
+	txHash := signedTx.Hash().Hex()
+	log.Printf("✅ 自动转账 ETH 已发送: %s -> %s, 金额: %s wei, txHash: %s",
+		ownerAddress.Hex(), address.Hex(), transferAmount.String(), txHash)
+
+	// 如果需要等待确认
+	if waitForConfirmation {
+		log.Printf("⏳ 等待 ETH 转账确认: %s", txHash)
+		receipt, err := s.waitForTransaction(ctx, signedTx.Hash())
+		if err != nil {
+			return fmt.Errorf("等待 ETH 转账确认失败: %v", err)
+		}
+
+		if receipt.Status == 0 {
+			return fmt.Errorf("ETH 转账交易失败: txHash=%s", txHash)
+		}
+
+		log.Printf("✅ ETH 转账已确认: %s (区块: %d)", txHash, receipt.BlockNumber.Uint64())
+
+		// 再次检查余额，确保转账成功
+		newBalance, err := s.Client.BalanceAt(ctx, address, nil)
+		if err != nil {
+			log.Printf("警告: 无法验证转账后的余额: %v", err)
+		} else {
+			log.Printf("地址 %s 新 ETH 余额: %s wei", address.Hex(), newBalance.String())
+		}
+	}
+
+	return nil
+}
+
+// waitForTransaction 等待交易确认
+func (s *Server) waitForTransaction(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	// 设置超时时间（最多等待30秒）
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			return nil, fmt.Errorf("等待交易确认超时: %s", txHash.Hex())
+		case <-ticker.C:
+			receipt, err := s.Client.TransactionReceipt(ctx, txHash)
+			if err == nil {
+				return receipt, nil
+			}
+			// 如果错误是"not found"，说明交易还未确认，继续等待
+			if err.Error() != "not found" {
+				return nil, fmt.Errorf("查询交易收据失败: %v", err)
+			}
+		}
+	}
+}
+
 // 领取每日奖励
 func (s *Server) handleClaimReward(w http.ResponseWriter, r *http.Request) {
 	var req ClaimRequest
@@ -307,7 +438,7 @@ func (s *Server) handleClaimReward(w http.ResponseWriter, r *http.Request) {
 	releaseLock := func() {}
 
 	// 优先使用存储的私钥（如果用户已登录且提供了密码）
-	userIDVal := r.Context().Value("user_id")
+	userIDVal := r.Context().Value(contextKeyUserID)
 	if userIDVal != nil && req.Password != "" {
 		userID := userIDVal.(int64)
 
@@ -375,6 +506,14 @@ func (s *Server) handleClaimReward(w http.ResponseWriter, r *http.Request) {
 
 	contract := s.ContractAddress
 	ctx := context.Background()
+
+	// 前置钩子：检查并自动转账 ETH（如果余额不足）
+	// 等待确认以确保ETH到账后再继续操作
+	if err := s.checkAndFundETH(ctx, fromAddress, true); err != nil {
+		releaseLock()
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("自动转账 ETH 失败: %v", err))
+		return
+	}
 
 	// 获取 nonce
 	nonce, err := s.Client.PendingNonceAt(ctx, fromAddress)
@@ -449,7 +588,7 @@ func (s *Server) handleClaimReward(w http.ResponseWriter, r *http.Request) {
 // 转账代币
 func (s *Server) handleTransfer(w http.ResponseWriter, r *http.Request) {
 	// 需要认证
-	userIDVal := r.Context().Value("user_id")
+	userIDVal := r.Context().Value(contextKeyUserID)
 	if userIDVal == nil {
 		respondError(w, http.StatusUnauthorized, "需要登录")
 		return
@@ -510,6 +649,13 @@ func (s *Server) handleTransfer(w http.ResponseWriter, r *http.Request) {
 
 	contract := s.ContractAddress
 	ctx := context.Background()
+
+	// 前置钩子：检查并自动转账 ETH（如果余额不足）
+	// 等待确认以确保ETH到账后再继续操作
+	if err := s.checkAndFundETH(ctx, fromAddress, true); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("自动转账 ETH 失败: %v", err))
+		return
+	}
 
 	// 检查余额
 	balance, err := s.callUint256WithParam(ctx, contract, "balanceOf", fromAddress)
@@ -706,8 +852,8 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// 将用户信息存储到 context
-		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-		ctx = context.WithValue(ctx, "user_email", claims.Email)
+		ctx := context.WithValue(r.Context(), contextKeyUserID, claims.UserID)
+		ctx = context.WithValue(ctx, contextKeyUserEmail, claims.Email)
 		next(w, r.WithContext(ctx))
 	}
 }
@@ -722,8 +868,8 @@ func (s *Server) optionalAuthMiddleware(next http.HandlerFunc) http.HandlerFunc 
 				claims, err := auth.ValidateToken(parts[1])
 				if err == nil {
 					// 将用户信息存储到 context
-					ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-					ctx = context.WithValue(ctx, "user_email", claims.Email)
+					ctx := context.WithValue(r.Context(), contextKeyUserID, claims.UserID)
+					ctx = context.WithValue(ctx, contextKeyUserEmail, claims.Email)
 					next(w, r.WithContext(ctx))
 					return
 				}
@@ -806,7 +952,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 // 获取当前用户信息
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int64)
+	userID := r.Context().Value(contextKeyUserID).(int64)
 	user, err := s.AuthService.GetByID(userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "获取用户信息失败")

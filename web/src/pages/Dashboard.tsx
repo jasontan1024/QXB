@@ -151,11 +151,9 @@ export default function Dashboard() {
   }
 
   if (!user) {
-    return (
-      <div className="dashboard-container">
-        <div className="error">无法加载用户信息</div>
-      </div>
-    );
+    // 未能加载用户信息时，强制跳转登录
+    navigate('/login');
+    return null;
   }
 
   return (
