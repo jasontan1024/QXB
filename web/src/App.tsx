@@ -4,6 +4,7 @@ import { auth } from './auth';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Resume from './pages/Resume';
 import './App.css';
 
 function ProtectedRoute({ children }: { children: React.ReactElement }) {
@@ -19,6 +20,7 @@ function App() {
       <Routes>
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/resume" element={<Resume />} />
         <Route
           path="/dashboard"
           element={

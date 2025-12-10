@@ -4,7 +4,7 @@
 📱 Telegram: `Jonh1024`  
 💼 **10年工作经验**  
 🎯 **求职意向**：Golang  
-💰 **期望薪资**：40K  
+💰 **期望薪资**：35K  
 🖥 **期望方式**：远程  
 
 ---
@@ -15,10 +15,11 @@
 2. 对新技术保持热情，积极学习并探索人工智能和网络安全等前沿领域。  
 3. 在工程能力方面有深入研究，擅长进行单元测试、代码重构等优化操作。  
 4. 熟练掌握 **Python、PHP、Golang** 等多种编程语言，熟悉 **gRPC 框架** 和 **Protobuf 协议**，理解算法与数据结构。  
-5. 熟悉多种数据库系统（MySQL、Redis、Elasticsearch、MongoDB），能根据业务需求选择合适方案。  
+5. 熟悉多种数据库系统（MySQL、Redis、Elasticsearch、MongoDB、SQLite），能根据业务需求选择合适方案。  
 6. 深入理解 **HTTP 协议**，熟练使用 **Scrapy、Splash、Selenium、Playwright** 等爬虫框架。  
 7. 精通 **Linux 系统**，熟练使用 **Docker、K8s** 进行容器操作与高效部署。  
 8. 对 **网络安全** 有深刻理解，熟悉常见攻击手段及防御策略。  
+9. 区块链落地经验：使用 **go-ethereum** 进行交易签名与 ABI 调用，完成 ERC20 (Sepolia) 后端（JWT、Argon2+AES-GCM 私钥加密）、链上转账/每日奖励领取，并配合 React + Playwright 做端到端验证。  
 
 ---
 
@@ -184,10 +185,21 @@
 
 ---
 
+### QXB 代币项目 · 后端 / 全栈  
+📆 2025.01 - 2024.12  
+- 使用 Go + GORM + SQLite 实现 ERC20 (Sepolia) 后端：JWT 认证、Argon2 + AES-GCM 私钥加密、链上转账与每日奖励领取。  
+- 集成 go-ethereum 完成交易签名与发送；加入 claim_locks 锁表避免同日重复领取；提供 owner 空投脚本为测试账号注资。  
+- 前端 React（注册/登录、Dashboard、奖励领取、转账），Playwright E2E（含有余额账号转账成功用例、错误场景用例），完整文档与测试说明。  
+- 项目全链路自动化：本地 API + 前端联调，E2E 覆盖注册/登录/转账/奖励领取及错误路径。  
+
+---
+
 ## 🧩 技术栈总结
 
 - **语言**：Golang / Python / PHP  
 - **框架**：gRPC / Laravel / ThinkPHP  
-- **数据库**：MySQL / Redis / Elasticsearch / MongoDB  
+- **数据库**：MySQL / Redis / Elasticsearch / MongoDB / SQLite  
+- **区块链**：以太坊 / Sepolia / go-ethereum (tx 签名、ABI 调用) / ERC20 / Foundry  
+- **前端与测试**：React / Playwright E2E / JWT 鉴权  
 - **容器与运维**：Docker / Kubernetes / Linux  
 - **其他**：HTTP / 网络安全 / 数据结构与算法  

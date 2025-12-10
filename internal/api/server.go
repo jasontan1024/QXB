@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -106,6 +105,20 @@ const qxbABI = `[
 	},
 	{
 		"constant": false,
+		"inputs": [{"name": "_resume", "type": "string"}],
+		"name": "setResume",
+		"outputs": [],
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [],
+		"name": "getResume",
+		"outputs": [{"name": "", "type": "string"}],
+		"type": "function"
+	},
+	{
+		"constant": false,
 		"inputs": [],
 		"name": "claimDailyReward",
 		"outputs": [{"name": "success", "type": "bool"}],
@@ -121,7 +134,7 @@ func NewServer(rpcURL string) *Server {
 	}
 
 	// 初始化数据库（使用 GORM）
-	db, err := storage.OpenGORM("data/qxb.db")
+	db, err := storage.OpenGORM(config.GetDBPath())
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
@@ -132,29 +145,10 @@ func NewServer(rpcURL string) *Server {
 		log.Fatalf("初始化认证服务失败: %v", err)
 	}
 
-	// 从编译后的 JSON 文件读取完整 ABI（推荐方式）
-	var contractABI abi.ABI
-	abiJSON, err := ioutil.ReadFile("out/QXB.sol/QXB.json")
+	// 使用内置 ABI（包含最新接口）
+	contractABI, err := abi.JSON(strings.NewReader(qxbABI))
 	if err != nil {
-		// 如果文件不存在，回退到手动定义的 ABI
-		log.Printf("警告：无法读取编译后的 ABI 文件，使用手动定义的 ABI: %v", err)
-		contractABI, err = abi.JSON(strings.NewReader(qxbABI))
-		if err != nil {
-			log.Fatalf("解析 ABI 失败: %v", err)
-		}
-	} else {
-		// 解析编译后的 JSON 文件
-		var contractData struct {
-			ABI json.RawMessage `json:"abi"`
-		}
-		if err := json.Unmarshal(abiJSON, &contractData); err != nil {
-			log.Fatalf("解析 ABI JSON 失败: %v", err)
-		}
-		contractABI, err = abi.JSON(strings.NewReader(string(contractData.ABI)))
-		if err != nil {
-			log.Fatalf("解析 ABI 失败: %v", err)
-		}
-		log.Println("✅ 成功加载编译后的完整 ABI")
+		log.Fatalf("解析 ABI 失败: %v", err)
 	}
 
 	return &Server{
@@ -195,6 +189,7 @@ func (s *Server) SetupRoutes() {
 	// 代币相关
 	api.HandleFunc("/token/info", s.handleTokenInfo).Methods("GET")
 	api.HandleFunc("/token/balance/{address}", s.handleTokenBalance).Methods("GET")
+	api.HandleFunc("/resume", s.handleResume).Methods("GET")
 
 	// 每日奖励相关
 	api.HandleFunc("/reward/status/{address}", s.handleRewardStatus).Methods("GET")

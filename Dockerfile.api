@@ -1,0 +1,29 @@
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache git gcc musl-dev
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=1 go build -o /app/bin/api ./cmd/api
+
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates && adduser -D -u 1000 appuser
+
+WORKDIR /app
+COPY --from=builder /app/bin/api /app/api
+
+# 数据目录
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
+USER appuser
+
+ENV DB_PATH=/app/data/app.db
+EXPOSE 8080
+
+CMD ["/app/api"]
+

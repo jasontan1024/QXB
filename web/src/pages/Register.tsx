@@ -85,6 +85,9 @@ export default function Register() {
         <div className="auth-link">
           已有账户？<Link to="/login">立即登录</Link>
         </div>
+        <div className="auth-link" style={{ marginTop: '16px', fontSize: '14px' }}>
+          <Link to="/resume">作者简历</Link>
+        </div>
       </div>
     </div>
   );

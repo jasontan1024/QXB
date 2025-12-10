@@ -70,7 +70,8 @@ export async function loginUser(page: Page, email: string, password: string) {
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', password);
   await page.click('button[type="submit"]');
-  await page.waitForURL('/dashboard', { timeout: 8000 });
+  // 部分情况下网络慢，放宽等待时间
+  await page.waitForURL('/dashboard', { timeout: 12000 });
 }
 
 export async function getBalance(page: Page): Promise<string> {

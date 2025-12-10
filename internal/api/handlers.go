@@ -97,6 +97,11 @@ type ClaimResponse struct {
 	Status string `json:"status"`
 }
 
+// ResumeResponse 简历响应
+type ResumeResponse struct {
+	Content string `json:"content"`
+}
+
 // 获取代币信息
 func (s *Server) handleTokenInfo(w http.ResponseWriter, r *http.Request) {
 	contract := s.ContractAddress
@@ -273,6 +278,20 @@ func (s *Server) handleRewardStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondSuccess(w, status)
+}
+
+// 读取作者简历（Markdown）从合约
+func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
+	contract := s.ContractAddress
+	ctx := context.Background()
+
+	content, err := s.callString(ctx, contract, "getResume")
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("读取简历失败: %v", err))
+		return
+	}
+
+	respondSuccess(w, ResumeResponse{Content: content})
 }
 
 // 领取每日奖励

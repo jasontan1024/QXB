@@ -62,6 +62,9 @@ export default function Login() {
         <div className="auth-link">
           还没有账户？<Link to="/register">立即注册</Link>
         </div>
+        <div className="auth-link" style={{ marginTop: '16px', fontSize: '14px' }}>
+          <Link to="/resume">作者简历</Link>
+        </div>
       </div>
     </div>
   );

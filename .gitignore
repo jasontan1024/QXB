@@ -58,4 +58,4 @@ web/test-results/
 web/playwright-report/
 
 # Cursor/IDE artifacts
-.cursor/
+.cursor/data/*.db*

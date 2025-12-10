@@ -2,9 +2,9 @@
 
 QXB（齐夏币）是一个基于以太坊 Sepolia 测试网的 ERC20 代币，包含每日奖励机制。
 
-**合约地址**: `0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06`
+**合约地址**: `0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17`
 
-- [在 Etherscan 查看](https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06)
+- [在 Etherscan 查看](https://sepolia.etherscan.io/address/0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17)
 ## 功能特性
 
 ### 合约功能
@@ -110,7 +110,7 @@ npx playwright show-report
 详细的验收测试步骤请参考 [MANUAL_TESTING_CHECKLIST.md](MANUAL_TESTING_CHECKLIST.md)
 
 **💡 查看合约信息：**
-- 在 Etherscan 上查看合约：https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06
+- 在 Etherscan 上查看合约：https://sepolia.etherscan.io/address/0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17
 - 使用 API 查询代币信息：`GET /api/token/info`（合约地址已在配置中固定）
 
 **🪙 添加到 MetaMask：**
@@ -118,7 +118,7 @@ npx playwright show-report
 1. 打开 MetaMask，点击"添加代币"
 2. 切换到"自定义代币"标签页
 3. 输入以下信息：
-   - **合约地址**: `0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06`
+   - **合约地址**: `0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17`
    - **代币符号**: `QXB`
    - **小数精度**: `18`
 4. 点击"添加代币"
@@ -424,7 +424,7 @@ curl -X POST http://localhost:8080/api/token/transfer \
 **📊 查看调用记录：**
 
 1. **Etherscan 区块链浏览器**（推荐，最全面）：
-   - 合约地址：https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06
+   - 合约地址：https://sepolia.etherscan.io/address/0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17
    - 可以查看：
      - **Transactions（交易）**：所有合约调用记录，包括转账、授权、领取奖励等
      - **Events（事件日志）**：Transfer、Approval、DailyRewardClaimed 等事件
@@ -482,7 +482,7 @@ PRIVATE_KEY=你的私钥
 合约地址在 `internal/config/config.go` 中配置：
 
 ```go
-const QXBContractAddress = "0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06"
+const QXBContractAddress = "0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17"
 ```
 
 如果需要使用不同的合约地址，修改此配置即可。

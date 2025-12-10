@@ -18,7 +18,7 @@ const (
 	EthereumRPCURL = "https://ethereum-sepolia-rpc.publicnode.com" // Sepolia 测试网公共 RPC 节点
 
 	// QXB 合约地址（Sepolia 测试网）
-	QXBContractAddress = "0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06"
+	QXBContractAddress = "0x5068a014aC8e691Be53848FE5872cbA9f8C4dA17"
 
 	// SQLite 数据库路径
 	DefaultDBPath = "data/app.db"

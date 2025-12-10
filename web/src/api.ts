@@ -1,6 +1,10 @@
-// 直接使用后端 URL（在测试环境中）
-// 注意：在生产环境中应该使用代理或配置 CORS
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+// API 基础地址：浏览器环境总是使用 localhost:8080
+// 因为前端容器暴露 3000 端口，API 容器暴露 8080 端口
+// 浏览器从宿主机访问，只能通过 localhost:8080 访问 API
+const API_BASE_URL = 
+  typeof window !== 'undefined' 
+    ? 'http://localhost:8080'
+    : (process.env.REACT_APP_API_URL || 'http://localhost:8080');
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -57,6 +61,10 @@ export interface RewardStatus {
   canClaim: boolean;
   lastClaimDay: number;
   nextClaimDay: number;
+}
+
+export interface ResumeResponse {
+  content: string;
 }
 
 export interface ClaimRequest {
@@ -156,6 +164,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(req),
     });
+  },
+
+  // 简历
+  async getResume(): Promise<ApiResponse<ResumeResponse>> {
+    return request<ResumeResponse>('/api/resume');
   },
 };
 

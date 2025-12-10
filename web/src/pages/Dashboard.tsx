@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api';
 import { auth } from '../auth';
 import './Dashboard.css';
@@ -30,15 +30,23 @@ export default function Dashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [userRes, balanceRes, rewardRes] = await Promise.all([
-        api.getMe(),
-        api.getMe().then((res) => res.data && api.getBalance(res.data.address)),
-        api.getMe().then((res) => res.data && api.getRewardStatus(res.data.address)),
-      ]);
-
-      if (userRes.success && userRes.data) {
-        setUser(userRes.data);
+      const userRes = await api.getMe();
+      
+      // 如果获取用户信息失败（token 无效），清除 token 并重定向到登录页
+      if (!userRes.success || !userRes.data) {
+        auth.removeToken();
+        navigate('/login');
+        return;
       }
+
+      const user = userRes.data;
+      setUser(user);
+
+      // 获取余额和奖励状态
+      const [balanceRes, rewardRes] = await Promise.all([
+        api.getBalance(user.address),
+        api.getRewardStatus(user.address),
+      ]);
 
       if (balanceRes?.success && balanceRes.data) {
         setBalance(balanceRes.data.balance);
@@ -51,6 +59,12 @@ export default function Dashboard() {
         });
       }
     } catch (err: any) {
+      // 如果是认证错误，清除 token 并重定向
+      if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        auth.removeToken();
+        navigate('/login');
+        return;
+      }
       setError(err.message || '加载数据失败');
     } finally {
       setLoading(false);
@@ -150,6 +164,7 @@ export default function Dashboard() {
         <h1>QXB 代币管理</h1>
         <div className="user-info">
           <span>{user.email}</span>
+          <Link to="/resume" className="author-link">作者简历</Link>
           <button onClick={handleLogout} className="logout-button">
             退出
           </button>

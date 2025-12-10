@@ -24,10 +24,18 @@ test.describe('有余额账号转账验证', () => {
     await logout(page);
     await loginUser(page, FUNDED_EMAIL, FUNDED_PASSWORD);
 
-    // 3) 检查余额充足
-    await page.reload();
-    await page.waitForSelector('.balance', { timeout: 5000 });
-    const balanceBefore = parseFloat(await getBalance(page));
+    // 3) 检查余额充足（直接调后端，避免 UI 渲染延迟）
+    const fundedAddress = await getAddress(page);
+    let balanceBefore = 0;
+    for (let i = 0; i < 6; i++) {
+      balanceBefore = await page.evaluate(async (addr) => {
+        const res = await fetch(`http://localhost:8080/api/token/balance/${addr}`);
+        const data = await res.json();
+        return parseFloat(data?.data?.balance || '0');
+      }, fundedAddress);
+      if (balanceBefore >= 1) break;
+      await page.waitForTimeout(3000);
+    }
     expect(balanceBefore).toBeGreaterThanOrEqual(1);
 
     // 4) 转账 1 QXB

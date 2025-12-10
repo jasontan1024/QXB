@@ -31,10 +31,14 @@ contract QXB {
     uint256 public constant DAILY_REWARD = 1e18;      // 每日奖励：1 QXB (1 * 10^18)
     uint256 public constant DAY_IN_SECONDS = 86400;    // 一天的秒数
 
+    // 作者简历（Markdown），仅合约所有者可更新
+    string private authorResume;
+
     // 事件定义
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event DailyRewardClaimed(address indexed user, uint256 amount, uint256 timestamp);
+    event ResumeUpdated(address indexed updater);
 
     /**
      * @dev 构造函数，初始化代币
@@ -60,6 +64,22 @@ contract QXB {
         
         // 触发转账事件（从零地址到部署者）
         emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+
+    /**
+     * @dev 设置作者简历（Markdown），仅合约所有者可调用
+     */
+    function setResume(string calldata _resume) external {
+        require(msg.sender == owner, "Only owner");
+        authorResume = _resume;
+        emit ResumeUpdated(msg.sender);
+    }
+
+    /**
+     * @dev 读取作者简历（Markdown）
+     */
+    function getResume() external view returns (string memory) {
+        return authorResume;
     }
 
     /**
