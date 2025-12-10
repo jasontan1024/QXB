@@ -26,9 +26,34 @@ func main() {
 		port = "8080"
 	}
 
+	// 包装路由器以处理 CORS
+	corsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 设置 CORS 头
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+
+		// 处理预检请求（必须在路由之前）
+		// 对于所有路径的 OPTIONS 请求都返回成功
+		if r.Method == "OPTIONS" {
+			log.Printf("处理 OPTIONS 请求: %s", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// 继续处理其他请求
+		server.Router.ServeHTTP(w, r)
+	})
+
 	httpServer := &http.Server{
 		Addr:    ":" + port,
-		Handler: server.Router,
+		Handler: corsHandler,
 	}
 
 	// 启动服务器（在 goroutine 中）

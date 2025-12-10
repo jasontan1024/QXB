@@ -19,6 +19,12 @@ QXB（齐夏币）是一个基于以太坊 Sepolia 测试网的 ERC20 代币，�
 ### 工具和 API
 - ✅ Go API 服务器（RESTful API）
 - ✅ 合约部署工具
+- ✅ React 前端应用（用户注册/登录、代币管理、奖励领取、转账）
+
+### 用户认证和钱包管理
+- ✅ 用户注册和登录（JWT 认证）
+- ✅ 私钥加密存储（使用 Argon2 + AES-GCM）
+- ✅ 基于存储私钥的代币操作（无需客户端输入私钥）
 
 ## 快速开始
 
@@ -51,6 +57,57 @@ go run ./cmd/api
 ```
 
 API 服务运行在 `http://localhost:8080`
+
+### 3. 启动前端应用
+
+```bash
+# 进入前端目录
+cd web
+
+# 安装依赖（首次运行）
+npm install
+
+# 启动开发服务器
+npm start
+```
+
+前端应用运行在 `http://localhost:3000`
+
+**💡 前端功能：**
+- 用户注册：创建账户并自动生成以太坊地址
+- 用户登录：使用邮箱和密码登录
+- 代币管理：查看余额、奖励状态
+- 奖励领取：使用存储的私钥领取每日奖励（需要输入密码）
+- 代币转账：向其他地址转账（需要输入密码）
+
+### 4. 运行 E2E 测试
+
+```bash
+# 进入前端目录
+cd web
+
+# 运行所有 E2E 测试（会自动启动前端服务器）
+npm run test:e2e
+
+# 以 UI 模式运行（推荐用于调试）
+npm run test:e2e:ui
+
+# 以调试模式运行
+npm run test:e2e:debug
+
+# 查看测试报告
+npx playwright show-report
+```
+
+**💡 E2E 测试覆盖：**
+- 用户注册和登录流程
+- 余额和奖励状态查看
+- 奖励领取功能
+- 代币转账功能（用户A向用户B转账）
+- 错误场景：错误密码、余额不足、未登录、无效地址等
+
+**📋 手工验收清单：**
+详细的验收测试步骤请参考 [MANUAL_TESTING_CHECKLIST.md](MANUAL_TESTING_CHECKLIST.md)
 
 **💡 查看合约信息：**
 - 在 Etherscan 上查看合约：https://sepolia.etherscan.io/address/0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06
@@ -169,15 +226,21 @@ curl http://localhost:8080/api/token/balance/0x你的地址
 ```bash
 curl http://localhost:8080/api/reward/status/0x你的地址
 ```
-- `POST /api/reward/claim` - 领取每日奖励
+#### 领取每日奖励
+- **请求方法**: `POST`
+- **请求路径**: `/api/reward/claim`
+- **Content-Type**: `application/json`
 
-**领取奖励请求参数：**
+**请求体（JSON）：**
 
-请求方法：`POST`  
-请求路径：`/api/reward/claim`  
-Content-Type: `application/json`
+方式一：使用存储的私钥（推荐，需要登录）
+```json
+{
+  "password": "你的密码"
+}
+```
 
-请求体（JSON）：
+方式二：直接提供私钥（向后兼容）
 ```json
 {
   "privateKey": "你的私钥（十六进制字符串，可以带或不带0x前缀）"
@@ -185,9 +248,145 @@ Content-Type: `application/json`
 ```
 
 **参数说明：**
-- `privateKey` (string, 必需): 用于签名交易的私钥，十六进制格式
+- `password` (string, 可选): 用户密码，用于解密存储的私钥。需要先登录并在请求头中提供 JWT token
+- `privateKey` (string, 可选): 用于签名交易的私钥，十六进制格式
   - 可以带 `0x` 前缀，也可以不带
   - 例如：`"0x1234567890abcdef..."` 或 `"1234567890abcdef..."`
+
+**注意**：`password` 和 `privateKey` 至少需要提供一个。
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "txHash": "0xabc123...",
+    "status": "pending"
+  },
+  "error": ""
+}
+```
+
+**使用示例（curl）：**
+
+使用存储的私钥（需要先登录获取 token）：
+```bash
+curl -X POST http://localhost:8080/api/reward/claim \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <你的JWT令牌>" \
+  -d '{"password": "你的密码"}'
+```
+
+直接提供私钥：
+```bash
+curl -X POST http://localhost:8080/api/reward/claim \
+  -H "Content-Type: application/json" \
+  -d '{"privateKey": "你的私钥"}'
+```
+
+**注意**：合约地址已在配置文件中固定（`internal/config/config.go`），无需在 API 请求中传入。
+
+### 认证相关
+
+#### 用户注册
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/register`
+- **Content-Type**: `application/json`
+
+**请求体（JSON）：**
+```json
+{
+  "email": "user@example.com",
+  "password": "your_password"
+}
+```
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": 1,
+    "email": "user@example.com",
+    "address": "0x...",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
+  "error": ""
+}
+```
+
+**说明**：
+- 注册时会自动生成以太坊密钥对
+- 私钥使用用户密码加密后存储（Argon2 + AES-GCM）
+- 返回 JWT token，可用于后续认证
+
+#### 用户登录
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/login`
+- **Content-Type**: `application/json`
+
+**请求体（JSON）：**
+```json
+{
+  "email": "user@example.com",
+  "password": "your_password"
+}
+```
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": 1,
+    "email": "user@example.com",
+    "address": "0x...",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
+  "error": ""
+}
+```
+
+#### 获取当前用户信息
+- **请求方法**: `GET`
+- **请求路径**: `/api/auth/me`
+- **需要认证**: 是（在请求头中提供 `Authorization: Bearer <token>`）
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": 1,
+    "email": "user@example.com",
+    "address": "0x..."
+  },
+  "error": ""
+}
+```
+
+### 代币转账
+
+#### 转账代币
+- **请求方法**: `POST`
+- **请求路径**: `/api/token/transfer`
+- **Content-Type**: `application/json`
+- **需要认证**: 是（在请求头中提供 `Authorization: Bearer <token>`）
+
+**请求体（JSON）：**
+```json
+{
+  "to": "0x接收地址",
+  "amount": "1000000000000000000",
+  "password": "你的密码"
+}
+```
+
+**参数说明：**
+- `to` (string, 必需): 接收代币的以太坊地址
+- `amount` (string, 必需): 转账金额（以 wei 为单位，18 位小数）
+  - 例如：`"1000000000000000000"` 表示 1 QXB
+- `password` (string, 必需): 用户密码，用于解密存储的私钥
 
 **响应示例：**
 ```json
@@ -206,18 +405,21 @@ Content-Type: `application/json`
 {
   "success": false,
   "data": null,
-  "error": "私钥不能为空"
+  "error": "余额不足"
 }
 ```
 
 **使用示例（curl）：**
 ```bash
-curl -X POST http://localhost:8080/api/reward/claim \
+curl -X POST http://localhost:8080/api/token/transfer \
   -H "Content-Type: application/json" \
-  -d '{"privateKey": "你的私钥"}'
+  -H "Authorization: Bearer <你的JWT令牌>" \
+  -d '{
+    "to": "0x接收地址",
+    "amount": "1000000000000000000",
+    "password": "你的密码"
+  }'
 ```
-
-**注意**：合约地址已在配置文件中固定（`internal/config/config.go`），无需在 API 请求中传入。
 
 **📊 查看调用记录：**
 
@@ -291,8 +493,44 @@ const QXBContractAddress = "0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06"
 - **RPC URL**: https://ethereum-sepolia-rpc.publicnode.com
 - **链 ID**: 11155111
 
+## 安全说明
+
+### 私钥加密存储
+
+本项目实现了安全的私钥存储机制：
+
+1. **密钥派生**：使用 Argon2 算法从用户密码派生加密密钥
+   - 参数：time=1, memory=64KB, threads=1, keyLen=32
+   - 每个用户使用独立的随机 salt
+
+2. **私钥加密**：使用 AES-GCM 模式加密私钥
+   - 加密密钥由用户密码通过 Argon2 派生
+   - 每个私钥使用独立的随机 salt 和 nonce
+   - 加密后的私钥以 base64 格式存储在数据库中
+
+3. **密码验证**：使用 Argon2 派生密钥进行密码验证
+   - 密码哈希和私钥加密使用不同的 salt
+   - 密码错误会导致解密失败，无法访问私钥
+
+4. **数据库存储**：
+   - 数据库文件：`data/qxb.db`（SQLite）
+   - 存储字段：`enc_priv_key`（加密私钥）、`enc_salt`（加密 salt）、`pass_salt`（密码 salt）
+   - 私钥永远不会以明文形式存储或传输
+
+5. **使用流程**：
+   - 注册时：生成密钥对 → 使用密码加密私钥 → 存储加密后的私钥
+   - 转账/领取时：用户输入密码 → 解密私钥 → 签名交易 → 立即清除内存中的私钥
+
+**⚠️ 安全建议**：
+- 使用强密码（至少 12 位，包含大小写字母、数字、特殊字符）
+- 定期备份数据库文件
+- 生产环境应使用更严格的 Argon2 参数
+- 考虑使用硬件安全模块（HSM）或密钥管理服务（KMS）
+
 ## 注意事项
 
 1. 部署需要支付 Gas 费用（约 0.001-0.01 ETH）
 2. 私钥不要提交到 Git
 3. 本项目仅用于学习和测试
+4. 数据库文件（`data/qxb.db`）包含加密的私钥，请妥善保管
+5. JWT token 默认有效期为 24 小时

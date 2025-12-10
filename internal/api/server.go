@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gorilla/mux"
 
+	"lbtc/internal/auth"
 	"lbtc/internal/config"
+	"lbtc/internal/storage"
 )
 
 // Server API 服务器结构
@@ -22,6 +24,7 @@ type Server struct {
 	Client          *ethclient.Client
 	Contract        *ContractService
 	ContractAddress common.Address // 固定的合约地址
+	AuthService     *auth.Service  // 认证服务
 }
 
 // ContractService 合约服务
@@ -117,6 +120,18 @@ func NewServer(rpcURL string) *Server {
 		log.Fatalf("连接区块链失败: %v", err)
 	}
 
+	// 初始化数据库（使用 GORM）
+	db, err := storage.OpenGORM("data/qxb.db")
+	if err != nil {
+		log.Fatalf("初始化数据库失败: %v", err)
+	}
+
+	// 初始化认证服务
+	authService, err := auth.NewService(db)
+	if err != nil {
+		log.Fatalf("初始化认证服务失败: %v", err)
+	}
+
 	// 从编译后的 JSON 文件读取完整 ABI（推荐方式）
 	var contractABI abi.ABI
 	abiJSON, err := ioutil.ReadFile("out/QXB.sol/QXB.json")
@@ -150,11 +165,23 @@ func NewServer(rpcURL string) *Server {
 			Client: client,
 			ABI:    contractABI,
 		},
+		AuthService: authService,
 	}
 }
 
 // SetupRoutes 设置路由
 func (s *Server) SetupRoutes() {
+	// 启用 CORS（必须在所有路由之前）
+	s.Router.Use(corsMiddleware)
+
+	// 为所有路径添加 OPTIONS 处理（通配符匹配）
+	s.Router.PathPrefix("/").Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// API 文档
 	s.Router.HandleFunc("/api/docs", s.handleDocs).Methods("GET")
 
@@ -163,6 +190,7 @@ func (s *Server) SetupRoutes() {
 
 	// 代币信息 API
 	api := s.Router.PathPrefix("/api").Subrouter()
+	api.Use(corsMiddleware) // 子路由也需要 CORS
 
 	// 代币相关
 	api.HandleFunc("/token/info", s.handleTokenInfo).Methods("GET")
@@ -170,10 +198,15 @@ func (s *Server) SetupRoutes() {
 
 	// 每日奖励相关
 	api.HandleFunc("/reward/status/{address}", s.handleRewardStatus).Methods("GET")
-	api.HandleFunc("/reward/claim", s.handleClaimReward).Methods("POST")
+	api.HandleFunc("/reward/claim", s.optionalAuthMiddleware(s.handleClaimReward)).Methods("POST")
 
-	// 启用 CORS
-	s.Router.Use(corsMiddleware)
+	// 认证相关
+	api.HandleFunc("/auth/register", s.handleRegister).Methods("POST")
+	api.HandleFunc("/auth/login", s.handleLogin).Methods("POST")
+	api.HandleFunc("/auth/me", s.authMiddleware(s.handleMe)).Methods("GET")
+
+	// 代币转账（需要认证）
+	api.HandleFunc("/token/transfer", s.authMiddleware(s.handleTransfer)).Methods("POST")
 }
 
 // Response 通用响应结构
@@ -207,10 +240,19 @@ func respondSuccess(w http.ResponseWriter, data interface{}) {
 // CORS 中间件
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		// 设置 CORS 头
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
+		// 处理预检请求
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return

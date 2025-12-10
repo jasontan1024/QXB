@@ -19,6 +19,9 @@ const (
 
 	// QXB 合约地址（Sepolia 测试网）
 	QXBContractAddress = "0xFF96cF72Cc4FCb67C61e0E43924723fA88765A06"
+
+	// SQLite 数据库路径
+	DefaultDBPath = "data/app.db"
 )
 
 var (
@@ -40,6 +43,21 @@ func LoadEnv() {
 	// 尝试加载 .env 文件，如果文件不存在也不报错
 	_ = godotenv.Load()
 	initialized = true
+}
+
+// GetDBPath 获取数据库路径
+func GetDBPath() string {
+	LoadEnv()
+	if v := os.Getenv("DB_PATH"); v != "" {
+		return v
+	}
+	return DefaultDBPath
+}
+
+// GetJWTSecret 获取 JWT 密钥
+func GetJWTSecret() string {
+	LoadEnv()
+	return os.Getenv("JWT_SECRET")
 }
 
 // GetPrivateKey 从环境变量获取私钥

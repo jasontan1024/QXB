@@ -49,3 +49,13 @@ config.local.go
 .env
 .env.local
 .env.*.local
+
+# DB & runtime data
+data/*.db
+
+# Playwright artifacts
+web/test-results/
+web/playwright-report/
+
+# Cursor/IDE artifacts
+.cursor/
